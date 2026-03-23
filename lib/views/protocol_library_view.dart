@@ -1,83 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/emergency_prompts.dart';
 import '../theme/app_theme.dart';
-
-/// Protocol Library View
-/// Browse and view step-by-step emergency procedures
-class ProtocolLibraryView extends StatelessWidget {
-  const ProtocolLibraryView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Emergency Protocols'),
-      ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: QuickActionProtocol.protocols.length,
-        itemBuilder: (context, index) {
-          final protocol = QuickActionProtocol.protocols[index];
-          return _buildProtocolCard(context, protocol);
-        },
-      ),
-    );
-  }
-
-  Widget _buildProtocolCard(BuildContext context, QuickActionProtocol protocol) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: () => _showProtocolDetail(context, protocol),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.emergencyRed.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  protocol.icon,
-                  style: const TextStyle(fontSize: 24),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      protocol.title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      protocol.category,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showProtocolDetail(BuildContext context, QuickActionProtocol protocol) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ProtocolDetailSheet(protocol: protocol),
-    );
-  }
-}
+import 'emergency_prompts.dart';
 
 /// Protocol detail bottom sheet
 class ProtocolDetailSheet extends StatelessWidget {
@@ -180,7 +103,7 @@ class ProtocolDetailSheet extends StatelessWidget {
           // Steps
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: const EdgeInsets.fromLTRB(20, 15, 20, 0),
               itemCount: protocol.steps.length,
               itemBuilder: (context, index) {
                 return _buildStep(context, index + 1, protocol.steps[index]);
@@ -251,6 +174,91 @@ class ProtocolDetailSheet extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Protocol Library View
+/// Browse and view step-by-step emergency procedures
+class ProtocolLibraryView extends StatelessWidget {
+  final String initialCategory; // ✅ accept String
+
+  const ProtocolLibraryView({
+    super.key,
+    required this.initialCategory,
+  });
+
+  @override
+Widget build(BuildContext context) {
+  final protocols = quickActionProtocols; // Initialize empty list or import the correct variable
+
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text("Emergency Protocols"),
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
+      elevation: 0,
+    ),
+    body: ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: protocols.length,
+      itemBuilder: (context, index) {
+        return _buildProtocolCard(context, protocols[index]);
+      },
+    ),
+  );
+}
+  Widget _buildProtocolCard(BuildContext context, QuickActionProtocol protocol) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: InkWell(
+        onTap: () => _showProtocolDetail(context, protocol),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.emergencyRed.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  protocol.icon,
+                  style: const TextStyle(fontSize: 24),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      protocol.title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      protocol.category,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProtocolDetail(BuildContext context, QuickActionProtocol protocol) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ProtocolDetailSheet(protocol: protocol),
     );
   }
 }
