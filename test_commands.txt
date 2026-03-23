@@ -1,0 +1,28 @@
+# MESH NETWORK TESTING - Quick Commands
+
+## Test 1: Basic Run (Simplest)
+flutter run -t lib/test_mesh.dart
+
+## Test 2: With Your Existing App
+flutter run
+
+## Test 3: Specific Device (if multiple connected)
+flutter devices
+flutter run -t lib/test_mesh.dart -d YOUR_DEVICE_ID
+
+## Test 4: With Verbose Logging
+flutter run -t lib/test_mesh.dart -v
+
+## Test 5: Build APK for Manual Install
+flutter build apk --debug -t lib/test_mesh.dart
+
+## Useful During Testing
+# Hot reload: Press 'r'
+# Hot restart: Press 'R'
+# Quit: Press 'q'
+# Help: Press 'h'
+
+## Check Everything Works
+flutter analyze
+flutter pub get
+flutter doctor

@@ -1,5 +1,5 @@
 name: siren_zero
-description: Offline-first emergency response co-pilot powered by on-device AI. Life-saving guidance when every second counts.
+description: "Offline-first emergency response co-pilot powered by on-device AI. Life-saving guidance when every second counts."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -12,22 +12,43 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # RunAnywhere SDK packages (remote from pub.dev)
+  # 🤖 AI Engine: RunAnywhere SDK (Pinned for stability)
   runanywhere: 0.16.0
   runanywhere_llamacpp: 0.16.0
   runanywhere_onnx: 0.16.0
 
-  # UI and Icons
+  # ✨ UI, Animation, and Icons
   cupertino_icons: ^1.0.6
   flutter_animate: ^4.5.0
   google_fonts: ^6.2.1
   
-  # State management
+  # 🧠 State Management
   provider: ^6.1.2
   
-  # Utilities
-  intl: ^0.19.0
+  # 🌐 Mesh Networking (Ditto)
+  # 📍 Verified latest stable version as of March 2026
+  ditto_live: ^4.14.3
+  
+  # 🛠️ System Utilities & Permissions
+  # 📍 Version compatible with Android 13/14 Bluetooth split
+  permission_handler: ^11.3.1
+  
+  # 📍 Stable version for reliable Fake GPS testing
+  geolocator: ^13.0.1
+  
+  # 📱 Device Info & Local Storage
+  device_info_plus: ^10.1.2
+  shared_preferences: ^2.5.4
+  uuid: ^4.5.3
+
+  # 🛰️ Networking
   http: ^1.2.0
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
 
 flutter:
   uses-material-design: true

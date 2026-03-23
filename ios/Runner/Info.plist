@@ -49,5 +49,13 @@
 	<string>This app needs microphone access for speech recognition and voice commands.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>This app uses on-device speech recognition to transcribe your voice.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Siren-Zero needs your location to share it in SOS broadcasts so responders can find you faster.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Siren-Zero needs location access to maintain mesh network connectivity and share your location in emergencies.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Siren-Zero uses Bluetooth to create a mesh network for offline emergency communication.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Siren-Zero uses Bluetooth to communicate with nearby devices in the mesh network.</string>
 </dict>
 </plist>

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../services/model_service.dart';
+import '../services/mesh_network_service.dart';
 import '../services/emergency_prompts.dart';
 import '../theme/app_theme.dart';
+import '../widgets/mesh_network_widgets.dart';
 import 'emergency_chat_view.dart';
 import 'emergency_voice_view.dart';
 import 'protocol_library_view.dart';
@@ -78,6 +80,7 @@ class _SirenZeroHomeViewState extends State<SirenZeroHomeView> with SingleTicker
           ),
         ),
       ),
+      floatingActionButton: const QuickSOSButton(), // Quick access to SOS
     );
   }
 
@@ -146,6 +149,53 @@ class _SirenZeroHomeViewState extends State<SirenZeroHomeView> with SingleTicker
               ],
             ),
           ),
+          // Mesh Network Status Indicator
+          Consumer<MeshNetworkService>(
+            builder: (context, meshService, _) {
+              return GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/mesh-sos-monitor'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: meshService.isConnected 
+                        ? AppColors.safeGreen.withOpacity(0.1)
+                        : AppColors.textMuted.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: meshService.isConnected 
+                          ? AppColors.safeGreen
+                          : AppColors.textMuted,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.wifi_tethering,
+                        color: meshService.isConnected 
+                            ? AppColors.safeGreen
+                            : AppColors.textMuted,
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${meshService.connectedPeersCount}',
+                        style: TextStyle(
+                          color: meshService.isConnected 
+                              ? AppColors.safeGreen
+                              : AppColors.textMuted,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
@@ -777,9 +827,13 @@ Widget _buildSystemStatusCard() {
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
           ),
-          itemCount: categories.length,
+          itemCount: categories.length + 1, // +1 for Mesh SOS card
           itemBuilder: (context, index) {
-            return _buildCategoryCard(categories[index], index);
+            if (index < categories.length) {
+              return _buildCategoryCard(categories[index], index);
+            } else {
+              return _buildMeshSOSCard(index); // Mesh SOS card at the end
+            }
           },
         ),
       ],
@@ -877,6 +931,128 @@ Widget _buildSystemStatusCard() {
       duration: 500.ms,
       delay: (1200 + (index * 80)).ms,
     ).slideY(begin: 0.1, end: 0);
+  }
+
+  // Mesh SOS Emergency Card
+  Widget _buildMeshSOSCard(int index) {
+    return Consumer<MeshNetworkService>(
+      builder: (context, meshService, _) {
+        return Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => Navigator.pushNamed(context, '/mesh-sos'),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.emergencyRed.withOpacity(0.9),
+                    AppColors.emergencyRed.withOpacity(0.7),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.emergencyRed.withOpacity(0.3),
+                    blurRadius: 15,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          '🆘',
+                          style: TextStyle(fontSize: 24),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: meshService.isConnected
+                              ? AppColors.safeGreen
+                              : Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.wifi_tethering,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${meshService.connectedPeersCount}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'EMERGENCY SOS',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.8,
+                          height: 1.2,
+                          color: Colors.white,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Broadcast offline SOS to nearby devices',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 10,
+                          height: 1.3,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ).animate().fadeIn(
+          duration: 500.ms,
+          delay: (1200 + (index * 80)).ms,
+        ).slideY(begin: 0.1, end: 0).shake(delay: 2000.ms, duration: 500.ms);
+      },
+    );
   }
 
   Widget _buildToolsSection() {
@@ -1103,6 +1279,7 @@ class ModelSetupSheet extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     children: [
+                      
                       _buildModelItem(
                         context,
                         'Language Model (LLM)',
