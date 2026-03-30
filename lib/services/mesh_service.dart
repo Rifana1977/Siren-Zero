@@ -1,31 +1,35 @@
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:nearby_connections/nearby_connections.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class MeshService {
   static final MeshService _instance = MeshService._internal();
   factory MeshService() => _instance;
-  MeshService._internal(){
-  print("🚀 MeshService initialized");
+
+  MeshService._internal() {
+    print("🚀 MeshService initialized");
   }
+
   final Strategy strategy = Strategy.P2P_POINT_TO_POINT;
 
-  // 🔥 Only store endpoint IDs (no ConnectionInfo needed)
   Set<String> connectedDevices = {};
+  Set<String> receivedMessages = {};
 
   Function(String message)? onMessageReceived;
+  VoidCallback? onDevicesChanged; // 🔥 UI update trigger
 
-  // 🔥 Request permissions
+  // 🔥 Permissions
   Future<void> initPermissions() async {
     await Permission.location.request();
     await Permission.bluetooth.request();
     await Permission.bluetoothScan.request();
     await Permission.bluetoothConnect.request();
-    await Permission.bluetoothAdvertise.request(); // 🔥 ADD THIS
+    await Permission.bluetoothAdvertise.request();
     await Permission.nearbyWifiDevices.request();
   }
 
-  // 🔥 Start Advertising (Host)
+  // 🔥 Advertising (host)
   Future<void> startAdvertising() async {
     await Nearby().startAdvertising(
       "SirenZero",
@@ -36,99 +40,103 @@ class MeshService {
           onPayLoadRecieved: (endid, payload) {
             if (payload.type == PayloadType.BYTES) {
               String msg = String.fromCharCodes(payload.bytes!);
-              print("📩 RECEIVED: $msg");
               _handleMessage(msg);
             }
           },
         );
       },
       onConnectionResult: (id, status) {
+        print("📡 STATUS: $status");
+
         if (status == Status.CONNECTED) {
-          connectedDevices.add(id); // ✅ FIXED
+          connectedDevices.add(id);
+          onDevicesChanged?.call(); // 🔥 update UI
+          print("✅ CONNECTED: $id");
         }
       },
       onDisconnected: (id) {
         connectedDevices.remove(id);
+        onDevicesChanged?.call(); // 🔥 update UI
+        print("❌ DISCONNECTED: $id");
       },
     );
   }
 
-  // 🔥 Start Discovery (Find devices)
+  // 🔥 Discovery
   Future<void> startDiscovery() async {
     print("🔍 Discovery started");
+
     await Nearby().startDiscovery(
       "SirenZero",
       strategy,
       onEndpointFound: (id, name, serviceId) {
-        print("🔥 FOUND DEVICE: $id $name");
-        // ✅ Prevent duplicate connection
-        if (connectedDevices.contains(id)) {
-          print("⚠️ Already connected to $id");
-          return;
-        }
-        Nearby().requestConnection(
-          "User",
-          id,
-          onConnectionInitiated: (id, info) {
-            print("CONNECTION INITIATED: $id");
-            Nearby().acceptConnection(
-              id,
-              onPayLoadRecieved: (endid, payload) {
-                if (payload.type == PayloadType.BYTES) {
-                  String msg = String.fromCharCodes(payload.bytes!);
-                  _handleMessage(msg);
-                }
-              },
-            );
-          },
-          onConnectionResult: (id, status) {
-            print("STATUS: $status");
-            if (status == Status.CONNECTED) {
-              connectedDevices.add(id); // ✅ FIXED
-              print("Connected to $id");
-            }
-          },
-          onDisconnected: (id) {
-            connectedDevices.remove(id);
-          },
-        );
-      },
+  print("🔥 FOUND DEVICE: $id $name");
+
+  // ❌ avoid duplicate
+  if (connectedDevices.contains(id)) return;
+
+  print("⚡ AUTO CONNECTING TO: $id");
+
+  Nearby().requestConnection(
+    "AutoUser",
+    id,
+    onConnectionInitiated: (id, info) {
+      Nearby().acceptConnection(
+        id,
+        onPayLoadRecieved: (endid, payload) {
+          if (payload.type == PayloadType.BYTES) {
+            String msg = String.fromCharCodes(payload.bytes!);
+            _handleMessage(msg);
+          }
+        },
+      );
+    },
+    onConnectionResult: (id, status) {
+      print("📡 STATUS: $status");
+
+      if (status == Status.CONNECTED) {
+        connectedDevices.add(id);
+        onDevicesChanged?.call();
+        print("✅ AUTO CONNECTED: $id");
+      }
+    },
+    onDisconnected: (id) {
+      connectedDevices.remove(id);
+      onDevicesChanged?.call();
+    },
+  );
+},
       onEndpointLost: (id) {},
     );
   }
 
-  // 🔥 Send message to all connected peers
+  // 🔥 Send message
   Future<void> sendMessage(String message) async {
-  Uint8List bytes = Uint8List.fromList(message.codeUnits);
+    Uint8List bytes = Uint8List.fromList(message.codeUnits);
 
-  print("📤 SENDING: $message to ${connectedDevices.length} devices");
-
-  for (var id in connectedDevices) {
-    try {
-      await Nearby().sendBytesPayload(id, bytes);
-      print("✅ SENT TO: $id"); // 🔥 ADD
-    } catch (e) {
-      print("❌ SEND FAILED TO $id: $e");
+    for (var id in connectedDevices) {
+      try {
+        await Nearby().sendBytesPayload(id, bytes);
+        print("📤 SENT TO: $id");
+      } catch (e) {
+        print("❌ SEND FAILED: $e");
+      }
     }
   }
-}
 
-  // 🔥 MESH LOGIC (basic relay + dedup)
-  Set<String> receivedMessages = {};
-
+  // 🔥 Receive handler
   void _handleMessage(String msg) {
-  if (receivedMessages.contains(msg)) return;
+    print("🔥 GLOBAL RECEIVED: $msg"); // ✅ ADD THIS
 
-  receivedMessages.add(msg);
+    if (receivedMessages.contains(msg)) return;
 
-  print("📩 RECEIVED: $msg");
+    receivedMessages.add(msg);
 
-  if (onMessageReceived != null) {
-    onMessageReceived!(msg);
+    if (onMessageReceived != null) {
+      onMessageReceived!(msg);
   }
 }
 
-  // 🔥 Stop everything (optional cleanup)
   void stopAll() {
     Nearby().stopAllEndpoints();
     Nearby().stopAdvertising();

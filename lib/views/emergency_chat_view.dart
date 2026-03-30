@@ -55,11 +55,6 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
 
     _scrollToBottom();
   };
-
-  // 🔥 Start mesh automatically (no buttons)
-  await mesh.startAdvertising();
-  await Future.delayed(Duration(seconds: 3));
-  await mesh.startDiscovery();
 }
 
   @override

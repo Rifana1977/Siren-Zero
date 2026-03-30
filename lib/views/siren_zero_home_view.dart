@@ -7,6 +7,8 @@ import 'emergency_chat_view.dart';
 import 'emergency_voice_view.dart';
 import 'emergency_guide_view.dart';
 import 'protocol_library_view.dart';
+import '../services/mesh_service.dart';
+import 'mesh_chat_page.dart';
 
 /// Siren-Zero Main Screen
 /// Emergency-first UI for rapid access to life-saving guidance
@@ -19,6 +21,7 @@ class SirenZeroHomeView extends StatefulWidget {
 
 class _SirenZeroHomeViewState extends State<SirenZeroHomeView> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  final mesh = MeshService();   
   List<String> getSteps(String category) {
   final c = category.toLowerCase();
 
@@ -110,6 +113,8 @@ class _SirenZeroHomeViewState extends State<SirenZeroHomeView> with SingleTicker
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildSystemStatusCard(),
+                      const SizedBox(height: 20),
+                      _buildMeshCard(),
                       const SizedBox(height: 28),
                       _buildSirenZeroCard(),
                       const SizedBox(height: 28),
@@ -128,110 +133,168 @@ class _SirenZeroHomeViewState extends State<SirenZeroHomeView> with SingleTicker
     );
   }
 
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+  Widget _buildMeshCard() {
+  return GestureDetector(
+    onTap: () {
+      if (mesh.connectedDevices.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const MeshChatPage(),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("No devices connected"),
+          ),
+        );
+      }
+    },
+    child: Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppColors.primaryLight,
-            AppColors.primaryLight.withOpacity(0.0),
-          ],
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF4F46E5)],
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.25),
+            blurRadius: 12,
+            spreadRadius: 2,
+          ),
+        ],
       ),
       child: Row(
         children: [
+          // 🔥 LEFT ICON
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: AppColors.emergencyGradient,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.emergencyRed.withOpacity(0.4),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(
-              Icons.emergency,
+              Icons.hub,
               color: Colors.white,
-              size: 32,
+              size: 28,
             ),
-          ).animate(onPlay: (controller) => controller.repeat())
-            .shimmer(delay: 2000.ms, duration: 1500.ms, color: Colors.white.withOpacity(0.3)),
-          const SizedBox(width: 16),
+          ),
+
+          const SizedBox(width: 14),
+
+          // 🔥 TEXT SECTION
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'SIREN-ZERO',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                const Text(
+                  "Mesh Communication",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                    shadows: [
-                      Shadow(
-                        color: AppColors.emergencyRed.withOpacity(0.3),
-                        offset: const Offset(0, 2),
-                        blurRadius: 8,
-                      ),
-                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
+                const Text(
+                  "Offline peer-to-peer emergency network",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 6),
+
                 Text(
-                  'Offline Emergency Co-Pilot',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                    letterSpacing: 0.5,
+                  mesh.connectedDevices.isEmpty
+                      ? "🔴 No peers nearby"
+                      : "🟢 Connected to ${mesh.connectedDevices.length} device(s)",
+                  style: TextStyle(
+                    color: mesh.connectedDevices.isEmpty
+                        ? Colors.redAccent
+                        : Colors.greenAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
+
+                if (mesh.connectedDevices.isNotEmpty)
+                  const SizedBox(height: 6),
+
+                if (mesh.connectedDevices.isNotEmpty)
+                  const Text(
+                    "Tap to chat →",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceElevated,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: AppColors.textMuted.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: AppColors.safeGreen,
-                    shape: BoxShape.circle,
+
+          // 🔥 SCAN BUTTON
+          IconButton(
+            icon: const Icon(Icons.radar, color: Colors.white),
+            onPressed: () async {
+              try {
+                print("📡 STARTING MESH...");
+
+                await mesh.initPermissions();
+                print("✅ Permissions granted");
+
+                await mesh.startAdvertising();
+                print("📡 Advertising started");
+
+                await mesh.startDiscovery();
+                print("🔍 Discovery started");
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Scanning for nearby devices..."),
                   ),
-                ).animate(onPlay: (controller) => controller.repeat())
-                  .fade(duration: 1500.ms, begin: 0.3, end: 1.0),
-                const SizedBox(width: 6),
-                Text(
-                  'LIVE',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.safeGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    letterSpacing: 1,
+                );
+              } catch (e) {
+                print("❌ ERROR: $e");
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Error: $e"),
                   ),
-                ),
-              ],
-            ),
+                );
+              }
+            },
           ),
         ],
       ),
-    ).animate().fadeIn(duration: 600.ms).slideY(begin: -0.2, end: 0);
-  }
+    ),
+  )
+      .animate()
+      .fadeIn(duration: 600.ms)
+      .slideY(begin: 0.08, end: 0);
+}
+Widget _buildHeader() {
+  return Container(
+    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+    child: Row(
+      children: const [
+        Icon(Icons.emergency, color: Colors.red, size: 32),
+        SizedBox(width: 12),
+        Text(
+          "SIREN-ZERO",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
 Widget _buildSystemStatusCard() {
   return Consumer<ModelService>(
