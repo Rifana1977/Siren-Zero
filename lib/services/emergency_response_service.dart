@@ -58,9 +58,6 @@ class EmergencyResponseService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Add user message to history
-      addUserMessage(userQuery);
-
       // Get the appropriate system prompt for the current category
       final systemPrompt = EmergencyPrompts.getPromptForCategory(_currentCategory);
 
@@ -117,9 +114,6 @@ Provide immediate, actionable guidance:
     notifyListeners();
 
     try {
-      // Add user message to history
-      addUserMessage(userQuery);
-
       // Get the appropriate system prompt
       final systemPrompt = EmergencyPrompts.getPromptForCategory(_currentCategory);
 

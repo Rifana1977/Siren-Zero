@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'emergency_prompts.dart';
@@ -12,9 +13,11 @@ class ProtocolDetailSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.surfaceCard
+            : AppColors.lightSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         children: [
@@ -24,7 +27,9 @@ class ProtocolDetailSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: AppColors.textMuted,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.textMuted
+                  : AppColors.lightTextMuted,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -34,7 +39,8 @@ class ProtocolDetailSheet extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               gradient: AppColors.emergencyGradient,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             child: Row(
               children: [
@@ -49,15 +55,18 @@ class ProtocolDetailSheet extends StatelessWidget {
                     children: [
                       Text(
                         protocol.title,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: Colors.white,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineMedium
+                            ?.copyWith(
+                              color: Colors.white,
+                            ),
                       ),
                       Text(
                         protocol.category,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white.withOpacity(0.8),
-                        ),
+                              color: Colors.white.withOpacity(0.8),
+                            ),
                       ),
                     ],
                   ),
@@ -91,9 +100,11 @@ class ProtocolDetailSheet extends StatelessWidget {
                     child: Text(
                       protocol.warningMessage!,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.bold,
-                      ),
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppColors.textPrimary
+                                : const Color(0xFF92400E), // Deep amber for legibility
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                   ),
                 ],
@@ -114,20 +125,82 @@ class ProtocolDetailSheet extends StatelessWidget {
           // Emergency call button
           Container(
             padding: const EdgeInsets.all(20),
-            child: ElevatedButton.icon(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ).copyWith(
+                elevation: MaterialStateProperty.all(0),
+              ),
               onPressed: () {
-                // In a real app, this would call emergency services
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('In emergency: Call 911 or local emergency number'),
+                    content: Text(
+                        'In emergency: Call 911 or local emergency number'),
                   ),
                 );
               },
-              icon: const Icon(Icons.phone),
-              label: const Text('CALL EMERGENCY SERVICES'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 56),
-                backgroundColor: AppColors.emergencyRed,
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? const Color(0xFF1E293B).withOpacity(0.4)
+                      : Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppColors.emergencyRed.withOpacity(0.8),
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.emergencyRed.withOpacity(0.2),
+                      blurRadius: 20,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16), // Added horizontal padding
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7), // Slightly smaller
+                          decoration: BoxDecoration(
+                            color: AppColors.emergencyRed.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.phone_in_talk_rounded,
+                              color: AppColors.emergencyRed, size: 20), // Smaller icon
+                        ),
+                        const SizedBox(width: 8), // Reduced gap
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "CALL EMERGENCY SERVICES",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : AppColors.lightTextPrimary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13, // Significant reduction if needed
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -153,9 +226,9 @@ class ProtocolDetailSheet extends StatelessWidget {
             child: Text(
               '$number',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
           ),
           const SizedBox(width: 16),
@@ -163,12 +236,18 @@ class ProtocolDetailSheet extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surfaceElevated,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.surfaceElevated
+                    : Colors.black.withOpacity(0.04),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 text,
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white.withOpacity(0.9)
+                          : AppColors.lightTextPrimary,
+                    ),
               ),
             ),
           ),
@@ -189,64 +268,126 @@ class ProtocolLibraryView extends StatelessWidget {
   });
 
   @override
-Widget build(BuildContext context) {
-  final protocols = quickActionProtocols; // Initialize empty list or import the correct variable
+  Widget build(BuildContext context) {
+    final protocols =
+        quickActionProtocols; // Initialize empty list or import the correct variable
 
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text("Emergency Protocols"),
-      backgroundColor: Colors.white,
-      foregroundColor: Colors.black,
-      elevation: 0,
-    ),
-    body: ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: protocols.length,
-      itemBuilder: (context, index) {
-        return _buildProtocolCard(context, protocols[index]);
-      },
-    ),
-  );
-}
-  Widget _buildProtocolCard(BuildContext context, QuickActionProtocol protocol) {
-    return Card(
+    return Scaffold(
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? AppColors.primaryBg
+          : AppColors.lightBg,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF0F172A).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.8),
+            ),
+          ),
+        ),
+        iconTheme: IconThemeData(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : const Color(0xFF0F172A)),
+        title: Text("Emergency Protocols",
+            style: TextStyle(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : const Color(0xFF0F172A),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5)),
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: protocols.length,
+        itemBuilder: (context, index) {
+          return _buildProtocolCard(context, protocols[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildProtocolCard(
+      BuildContext context, QuickActionProtocol protocol) {
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: () => _showProtocolDetail(context, protocol),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.emergencyRed.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+      decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color(0xFF1E293B).withOpacity(0.8)
+              : Colors.white.withOpacity(0.95),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.08)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ]),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showProtocolDetail(context, protocol),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.emergencyRed.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    protocol.icon,
+                    style: const TextStyle(fontSize: 28),
+                  ),
                 ),
-                child: Text(
-                  protocol.icon,
-                  style: const TextStyle(fontSize: 24),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        protocol.title,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        protocol.category,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white60
+                                  : AppColors.lightTextSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      protocol.title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    Text(
-                      protocol.category,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios, size: 16),
-            ],
+                Icon(Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white54
+                        : AppColors.lightTextSecondary),
+              ],
+            ),
           ),
         ),
       ),

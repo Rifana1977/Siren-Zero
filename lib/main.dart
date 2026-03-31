@@ -6,6 +6,7 @@ import 'package:runanywhere_onnx/runanywhere_onnx.dart';
 
 import 'package:siren_zero/services/model_service.dart';
 import 'package:siren_zero/theme/app_theme.dart';
+import 'package:siren_zero/theme/theme_provider.dart';
 import 'package:siren_zero/views/siren_zero_home_view.dart';
 
 void main() async {
@@ -22,8 +23,11 @@ void main() async {
   ModelService.registerDefaultModels();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ModelService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ModelService()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+      ],
       child: const RunAnywhereStarterApp(),
     ),
   );
@@ -34,11 +38,17 @@ class RunAnywhereStarterApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Siren-Zero',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const SirenZeroHomeView(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          title: 'Siren-Zero',
+          debugShowCheckedModeBanner: false,
+          themeMode: themeProvider.themeMode,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          home: const SirenZeroHomeView(),
+        );
+      },
     );
   }
 }

@@ -1,4 +1,6 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'package:runanywhere/runanywhere.dart';
 import '../services/model_service.dart';
@@ -40,11 +42,11 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
     }
 
     final modelService = Provider.of<ModelService>(context, listen: false);
-    
+
     // Check if all models are ready
     if (!modelService.isVoiceAgentReady) {
       setState(() => _status = 'Loading models...');
-      
+
       // Load all models
       if (!modelService.isSTTLoaded) {
         await modelService.downloadAndLoadSTT();
@@ -72,7 +74,7 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
       // Handle events
       _session!.events.listen((event) {
         if (!mounted) return;
-        
+
         setState(() {
           switch (event) {
             case VoiceSessionListening(:final audioLevel):
@@ -105,7 +107,7 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
             case VoiceSessionStopped():
               _status = 'Stopped';
               _isActive = false;
-            
+
             default:
               break;
           }
@@ -123,8 +125,24 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryBg,
       appBar: AppBar(
-        title: const Text('Voice Assistant'),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        flexibleSpace: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(
+              color: const Color(0xFF0F172A).withOpacity(0.8),
+            ),
+          ),
+        ),
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('Voice Assistant',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5)),
         actions: [
           PopupMenuButton<EmergencyCategory>(
             icon: const Icon(Icons.category),
@@ -137,7 +155,8 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
                   value: category,
                   child: Row(
                     children: [
-                      Text(category.emoji, style: const TextStyle(fontSize: 20)),
+                      Text(category.emoji,
+                          style: const TextStyle(fontSize: 20)),
                       const SizedBox(width: 12),
                       Text(category.title),
                     ],
@@ -169,15 +188,20 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
 
   Widget _buildCategoryBanner() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       decoration: BoxDecoration(
-        color: AppColors.infoBlue.withOpacity(0.1),
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.infoBlue.withOpacity(0.3),
-            width: 1,
-          ),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF38BDF8), Color(0xFF3B82F6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF38BDF8).withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -189,11 +213,18 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
               children: [
                 Text(
                   _category.title,
-                  style: Theme.of(context).textTheme.titleMedium,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: 0.5,
+                      ),
                 ),
                 Text(
                   'Voice-guided emergency assistance',
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12,
+                      ),
                 ),
               ],
             ),
@@ -213,25 +244,53 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         decoration: BoxDecoration(
+          gradient: isUser
+              ? const LinearGradient(
+                  colors: [Color(0xFF38BDF8), Color(0xFF3B82F6)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : null,
           color: isUser
-              ? AppColors.infoBlue
-              : AppColors.surfaceCard,
-          borderRadius: BorderRadius.circular(12),
+              ? null
+              : (Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF1E293B)
+                  : Colors.white),
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(20),
+            topRight: const Radius.circular(20),
+            bottomLeft: Radius.circular(isUser ? 20 : 4),
+            bottomRight: Radius.circular(isUser ? 4 : 20),
+          ),
+          border:
+              isUser ? null : Border.all(color: Colors.white.withOpacity(0.05)),
+          boxShadow: [
+            BoxShadow(
+              color: isUser
+                  ? const Color(0xFF38BDF8).withOpacity(0.3)
+                  : Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            )
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (!isUser)
               const Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.volume_up, size: 16, color: AppColors.infoBlue),
+                padding: EdgeInsets.only(right: 12),
+                child: Icon(Icons.volume_up_rounded,
+                    size: 18, color: Color(0xFF38BDF8)),
               ),
             Flexible(
               child: Text(
                 text,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: isUser ? Colors.white : AppColors.textPrimary,
-                ),
+                      color:
+                          isUser ? Colors.white : Colors.white.withOpacity(0.9),
+                      height: 1.5,
+                    ),
               ),
             ),
           ],
@@ -241,76 +300,100 @@ class _EmergencyVoiceViewState extends State<EmergencyVoiceView> {
   }
 
   Widget _buildControlPanel() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceCard,
-        border: Border(
-          top: BorderSide(
-            color: AppColors.textMuted.withOpacity(0.2),
-            width: 1,
+    return ClipRRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? const Color(0xFF0F172A).withOpacity(0.85)
+                : Colors.white.withOpacity(0.85),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withOpacity(0.05),
+                width: 1,
+              ),
+            ),
           ),
-        ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            // Audio level indicator
-            if (_isActive)
-              Container(
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                child: LinearProgressIndicator(
-                  value: _audioLevel.clamp(0.0, 1.0),
-                  backgroundColor: AppColors.surfaceElevated,
-                  color: AppColors.infoBlue,
-                ),
-              ),
-            
-            // Status text
-            Text(
-              _status,
-              style: Theme.of(context).textTheme.bodyMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-
-            // Main control button
-            GestureDetector(
-              onTap: _toggleSession,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: _isActive
-                      ? const LinearGradient(
-                          colors: [AppColors.emergencyRed, Color(0xFFD50000)],
-                        )
-                      : const LinearGradient(
-                          colors: [AppColors.infoBlue, Color(0xFF0091EA)],
-                        ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isActive ? AppColors.emergencyRed : AppColors.infoBlue).withOpacity(0.5),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Audio level indicator
+                if (_isActive)
+                  Container(
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: LinearProgressIndicator(
+                      value: _audioLevel.clamp(0.0, 1.0),
+                      backgroundColor: AppColors.surfaceElevated,
+                      color: AppColors.infoBlue,
                     ),
-                  ],
+                  ),
+
+                // Status text
+                Text(
+                  _status,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.white70),
+                  textAlign: TextAlign.center,
                 ),
-                child: Icon(
-                  _isActive ? Icons.stop : Icons.mic,
-                  color: Colors.white,
-                  size: 40,
+                const SizedBox(height: 32),
+
+                // Main control button with dynamic scale based on audio volume
+                GestureDetector(
+                  onTap: _toggleSession,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    width: 90 + (_isActive ? (_audioLevel * 40) : 0),
+                    height: 90 + (_isActive ? (_audioLevel * 40) : 0),
+                    decoration: BoxDecoration(
+                      gradient: _isActive
+                          ? const LinearGradient(
+                              colors: [Color(0xFFFF2D55), Color(0xFFE6003B)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            )
+                          : const LinearGradient(
+                              colors: [Color(0xFF38BDF8), Color(0xFF3B82F6)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isActive
+                                  ? const Color(0xFFFF2D55)
+                                  : const Color(0xFF38BDF8))
+                              .withOpacity(0.4 + (_audioLevel * 0.4)),
+                          blurRadius: 25 + (_audioLevel * 20),
+                          spreadRadius: _audioLevel * 10,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Icon(
+                        _isActive ? Icons.stop_rounded : Icons.mic_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                Text(
+                  _isActive ? 'TAP TO STOP' : 'TAP TO START',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white54,
+                        letterSpacing: 1.5,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              _isActive ? 'TAP TO STOP' : 'TAP TO START',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ],
+          ),
         ),
       ),
     );
