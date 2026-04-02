@@ -70,30 +70,27 @@ class EmergencyResponseService extends ChangeNotifier {
           ? pastHistory.sublist(pastHistory.length - 6) 
           : pastHistory;
 
-      String formattedPrompt = '';
-      
+      String historyContext = '';
       if (recentHistory.isNotEmpty) {
-        formattedPrompt += "Previous conversation context:\n";
+        historyContext = "Conversation History:\n";
         for (var m in recentHistory) {
-          formattedPrompt += "${m.isUser ? 'User' : 'Assistant'}: ${m.text}\n";
+          historyContext += "${m.isUser ? 'User' : 'Assistant'}: ${m.text}\n";
         }
-        formattedPrompt += "\n---\n\n";
       }
 
-      final fullPrompt = '''
-$formattedPrompt
-Based on the context, provide a direct, helpful, and concise response to the user's latest message. DO NOT quote or repeat the user's message. DO NOT repeat the conversation history. DO NOT use conversational filler if an emergency procedure is needed.
+      final completeSystemPrompt = '''
+$systemPrompt
 
-User: $userQuery
-Assistant:''';
+$historyContext
+''';
 
       // Generate response using RunAnywhere SDK
       final result = await RunAnywhere.generate(
-        fullPrompt,
+        userQuery,
         options: LLMGenerationOptions(
           maxTokens: 200,
           temperature: 0.3, // Lower temperature for more consistent, reliable responses
-          systemPrompt: systemPrompt,
+          systemPrompt: completeSystemPrompt,
         ),
       );
 
@@ -133,30 +130,27 @@ Assistant:''';
           ? pastHistory.sublist(pastHistory.length - 6) 
           : pastHistory;
 
-      String formattedPrompt = '';
-      
+      String historyContext = '';
       if (recentHistory.isNotEmpty) {
-        formattedPrompt += "Previous conversation context:\n";
+        historyContext = "Conversation History:\n";
         for (var m in recentHistory) {
-          formattedPrompt += "${m.isUser ? 'User' : 'Assistant'}: ${m.text}\n";
+          historyContext += "${m.isUser ? 'User' : 'Assistant'}: ${m.text}\n";
         }
-        formattedPrompt += "\n---\n\n";
       }
 
-      final fullPrompt = '''
-$formattedPrompt
-Based on the context, provide a direct, helpful, and concise response to the user's latest message. DO NOT quote or repeat the user's message. DO NOT repeat the conversation history. DO NOT use conversational filler if an emergency procedure is needed.
+      final completeSystemPrompt = '''
+$systemPrompt
 
-User: $userQuery
-Assistant:''';
+$historyContext
+''';
 
       // Stream tokens
       final streamResult = await RunAnywhere.generateStream(
-        fullPrompt,
+        userQuery,
         options: LLMGenerationOptions(
           maxTokens: 200,
           temperature: 0.3,
-          systemPrompt: systemPrompt,
+          systemPrompt: completeSystemPrompt,
         ),
       );
 

@@ -50,6 +50,12 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
   StreamSubscription<Uint8List>? _recordingSubscription;
   Timer? _levelTimer;
 
+  // Streaming Voice Queue
+  final List<String> _textQueue = [];
+  final List<File> _audioQueue = [];
+  bool _isSynthesizing = false;
+  bool _isPlayingAudio = false;
+
   @override
   void initState() {
     super.initState();
@@ -112,17 +118,24 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
       _isStreaming = true;
       _streamingText = '';
     });
-    
+
     String generatedOutput = "";
+    String sentenceBuffer = "";
 
     try {
-      await for (final token in _emergencyService.streamEmergencyResponse(text)) {
+      await for (final token
+          in _emergencyService.streamEmergencyResponse(text)) {
         if (!mounted) return;
         setState(() {
           _streamingText += token;
           generatedOutput = _streamingText;
         });
         _scrollToBottom();
+
+        if (_lastQueryWasVoice) {
+          sentenceBuffer += token;
+          sentenceBuffer = _processSentenceBuffer(sentenceBuffer);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -139,11 +152,12 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
           _isStreaming = false;
           _streamingText = '';
         });
-        if (_lastQueryWasVoice && generatedOutput.isNotEmpty) {
-           _synthesizeAndPlay(generatedOutput);
-           _lastQueryWasVoice = false;
+        if (_lastQueryWasVoice) {
+          if (sentenceBuffer.trim().isNotEmpty) {
+            _queueSentenceForTTS(sentenceBuffer.trim());
+          }
+          _lastQueryWasVoice = false;
         }
-        _scrollToBottom();
       }
     }
   }
@@ -241,9 +255,10 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
         // 🛑 Filter out Whisper hallucination loops on silence
         text = text.replaceAll(RegExp(r'(Hello\.\s*){3,}'), 'Hello.');
         text = text.replaceAll(RegExp(r'(Thank you\.\s*){3,}'), '');
-        final cleanedForCheck = text.replaceAll('.', '').replaceAll(' ', '').toLowerCase();
+        final cleanedForCheck =
+            text.replaceAll('.', '').replaceAll(' ', '').toLowerCase();
         if (cleanedForCheck == 'hello' || cleanedForCheck == 'thankyou') {
-           text = ''; // Ignore short dead-air hallucinations
+          text = ''; // Ignore short dead-air hallucinations
         }
 
         if (mounted) {
@@ -252,12 +267,12 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
             _isVoiceMode = false;
           });
           if (text.isNotEmpty && text.length > 2) {
-             _textController.text = text;
-             _sendMessage();
+            _textController.text = text;
+            _sendMessage();
           } else {
-             ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Could not hear you clearly. Please try again.'))
-             );
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content:
+                    Text('Could not hear you clearly. Please try again.')));
           }
         }
       } else {
@@ -267,8 +282,7 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
             _isVoiceMode = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Recording too short.'))
-          );
+              const SnackBar(content: Text('Recording too short.')));
         }
       }
     } catch (e) {
@@ -277,43 +291,97 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
           _isProcessingVoice = false;
           _isVoiceMode = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text('Error: $e'))
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
-  Future<void> _synthesizeAndPlay(String text) async {
-    if (text.isEmpty) return;
-    try {
-      // Clean up markdown hashes and stars for the voice synthesizer
-      String cleanText = text.replaceAll('*', '').replaceAll('#', '').replaceAll('\n', ' ');
-      
-      // Split into sentences so Kokoro TTS doesn't timeout/fail on huge text blocks
-      final chunks = cleanText.split(RegExp(r'(?<=[.!?])\s+'));
-      
-      for (int i = 0; i < chunks.length; i++) {
-         final chunk = chunks[i].trim();
-         if (chunk.isEmpty) continue;
-         
-         // In an emergency, we don't want a 2-minute voice monolog. Max 3 sentences spoken.
-         if (i >= 3) break;
+  void _queueSentenceForTTS(String text) {
+    String clean = text
+        .replaceAll('*', '')
+        .replaceAll('#', '')
+        .replaceAll('\n', ' ')
+        .trim();
+    if (clean.isEmpty) return;
 
-         final result = await RunAnywhere.synthesize(chunk, rate: 1.0);
-         final wavData = _createWavFromFloat32(result.samples, result.sampleRate);
-         final tempDir = await getTemporaryDirectory();
-         final tempFile = File('${tempDir.path}/tts_chunk_${i}_${DateTime.now().millisecondsSinceEpoch}.wav');
-         await tempFile.writeAsBytes(wavData);
-         
-         await _audioPlayer.play(DeviceFileSource(tempFile.path));
-         
-         // Crucial: Wait until audio is completely done before synthesizing/playing next
-         await _audioPlayer.onPlayerComplete.first;
+    _textQueue.add(clean);
+    _startSynthesizing();
+  }
+
+  String _processSentenceBuffer(String buffer) {
+    final sentencePattern = RegExp(r'(.+?[.!?])(\s+|$)', dotAll: true);
+    var remaining = buffer;
+
+    while (true) {
+      final match = sentencePattern.firstMatch(remaining);
+      if (match == null) break;
+
+      final sentence = match.group(1)?.trim();
+      if (sentence != null && sentence.isNotEmpty) {
+        _queueSentenceForTTS(sentence);
       }
-    } catch (e) {
-      debugPrint('TTS Error: $e');
+
+      remaining = remaining.substring(match.end);
     }
+
+    return remaining;
+  }
+
+  Future<void> _startSynthesizing() async {
+    if (_isSynthesizing) return;
+    _isSynthesizing = true;
+
+    while (_textQueue.isNotEmpty && mounted) {
+      final sentence = _textQueue.removeAt(0).trim();
+      if (sentence.isEmpty) continue;
+
+      try {
+        final result = await RunAnywhere.synthesize(sentence, rate: 1.0);
+        if (result.samples.isEmpty || result.sampleRate <= 0) {
+          debugPrint('TTS returned empty result or invalid sample rate');
+          continue;
+        }
+
+        final wavData =
+            _createWavFromFloat32(result.samples, result.sampleRate);
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(
+            '${tempDir.path}/tts_stream_${DateTime.now().microsecondsSinceEpoch}.wav');
+        await tempFile.writeAsBytes(wavData, flush: true);
+
+        // Add to audio queue and trigger playback if not already playing
+        _audioQueue.add(tempFile);
+        _startPlayingAudio();
+      } catch (e, st) {
+        debugPrint('TTS Error: $e');
+        debugPrint('$st');
+      }
+    }
+
+    _isSynthesizing = false;
+  }
+
+  Future<void> _startPlayingAudio() async {
+    if (_isPlayingAudio) return;
+    _isPlayingAudio = true;
+
+    while (_audioQueue.isNotEmpty && mounted) {
+      final audioFile = _audioQueue.removeAt(0);
+      try {
+        await _audioPlayer.play(DeviceFileSource(audioFile.path));
+        await _audioPlayer.onPlayerComplete.first;
+      } catch (e, st) {
+        debugPrint('Audio Playback Error: $e');
+        debugPrint('$st');
+      } finally {
+        if (await audioFile.exists()) {
+          await audioFile.delete().catchError((_) {});
+        }
+      }
+    }
+
+    _isPlayingAudio = false;
   }
 
   Uint8List _createWavFromFloat32(Float32List samples, int sampleRate) {
@@ -348,7 +416,12 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
     return buffer.toBytes();
   }
 
-  List<int> _int32ToBytes(int value) => [value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF, (value >> 24) & 0xFF];
+  List<int> _int32ToBytes(int value) => [
+        value & 0xFF,
+        (value >> 8) & 0xFF,
+        (value >> 16) & 0xFF,
+        (value >> 24) & 0xFF
+      ];
   List<int> _int16ToBytes(int value) => [value & 0xFF, (value >> 8) & 0xFF];
 
   @override
@@ -537,7 +610,10 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                       ? Colors.white
                       : AppColors.lightTextPrimary,
                 ),
-          ).animate().fadeIn(delay: 200.ms, duration: 600.ms).slideY(begin: 0.1),
+          )
+              .animate()
+              .fadeIn(delay: 200.ms, duration: 600.ms)
+              .slideY(begin: 0.1),
 
           const SizedBox(height: 12),
 
@@ -555,7 +631,10 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                     fontSize: 15,
                   ),
             ),
-          ).animate().fadeIn(delay: 300.ms, duration: 600.ms).slideY(begin: 0.1),
+          )
+              .animate()
+              .fadeIn(delay: 300.ms, duration: 600.ms)
+              .slideY(begin: 0.1),
 
           const SizedBox(height: 48),
 
@@ -565,7 +644,8 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
             children: [
               _buildQuickPrompt('How to perform CPR?', Icons.favorite, 0),
               const SizedBox(height: 12),
-              _buildQuickPrompt('Treating burns immediately', Icons.local_fire_department, 1),
+              _buildQuickPrompt(
+                  'Treating burns immediately', Icons.local_fire_department, 1),
               const SizedBox(height: 12),
               _buildQuickPrompt('Stop severe bleeding', Icons.bloodtype, 2),
             ],
@@ -600,7 +680,7 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context).brightness == Brightness.dark 
+                color: Theme.of(context).brightness == Brightness.dark
                     ? const Color(0xFF38BDF8).withOpacity(0.05)
                     : Colors.black.withOpacity(0.03),
                 blurRadius: 15,
@@ -631,12 +711,19 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                       ),
                 ),
               ),
-              Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Theme.of(context).brightness == Brightness.dark ? Colors.white30 : Colors.black26),
+              Icon(Icons.arrow_forward_ios_rounded,
+                  size: 14,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white30
+                      : Colors.black26),
             ],
           ),
         ),
       ),
-    ).animate().fadeIn(delay: (400 + (index * 100)).ms, duration: 500.ms).slideX(begin: 0.05);
+    )
+        .animate()
+        .fadeIn(delay: (400 + (index * 100)).ms, duration: 500.ms)
+        .slideX(begin: 0.05);
   }
 
   Widget _buildMessageBubble(String text, bool isUser,
@@ -666,18 +753,22 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 14),
-            ).animate().scale(delay: 200.ms, duration: 300.ms, curve: Curves.easeOutBack),
+              child: const Icon(Icons.smart_toy_rounded,
+                  color: Colors.white, size: 14),
+            ).animate().scale(
+                delay: 200.ms, duration: 300.ms, curve: Curves.easeOutBack),
             const SizedBox(width: 8),
           ],
-          
           Flexible(
             child: Container(
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
                 gradient: isUser
                     ? const LinearGradient(
-                        colors: [Color(0xFF38BDF8), Color(0xFF3B82F6)], // User gets nice blue
+                        colors: [
+                          Color(0xFF38BDF8),
+                          Color(0xFF3B82F6)
+                        ], // User gets nice blue
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       )
@@ -685,7 +776,8 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                 color: isUser
                     ? null
                     : (Theme.of(context).brightness == Brightness.dark
-                        ? const Color(0xFF1E293B).withOpacity(0.8) // Glassmorphic AI bubble
+                        ? const Color(0xFF1E293B)
+                            .withOpacity(0.8) // Glassmorphic AI bubble
                         : Colors.white.withOpacity(0.95)),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(20),
@@ -714,76 +806,97 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: isUser ? 0 : 10, sigmaY: isUser ? 0 : 10),
+                  filter: ImageFilter.blur(
+                      sigmaX: isUser ? 0 : 10, sigmaY: isUser ? 0 : 10),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (text.isEmpty && isStreaming)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color(0xFFFF2D55),
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(
+                                  width: 12,
+                                  height: 12,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Color(0xFFFF2D55),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Text(
-                                'Thinking...',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).brightness == Brightness.dark 
-                                          ? Colors.white70 : AppColors.lightTextMuted,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.5,
-                                    ),
-                              ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                               .fade(begin: 0.4, end: 1.0, duration: 600.ms),
-                            ],
-                          ),
-                        )
-                      else
-                        RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: text,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: isUser
-                                          ? Colors.white
-                                          : (Theme.of(context).brightness == Brightness.dark
-                                              ? Colors.white.withOpacity(0.95)
-                                              : AppColors.lightTextPrimary),
-                                      height: 1.5,
-                                      fontSize: 14,
-                                    ),
-                              ),
-                              if (isStreaming && !isUser)
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Container(
-                                    margin: const EdgeInsets.only(left: 4),
-                                    width: 6,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFF2D55),
-                                      borderRadius: BorderRadius.circular(1),
-                                    ),
-                                  ).animate(onPlay: (c) => c.repeat(reverse: true))
-                                   .fade(begin: 0.2, end: 1.0, duration: 400.ms),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Thinking...',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? Colors.white70
+                                            : AppColors.lightTextMuted,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.5,
+                                      ),
+                                )
+                                    .animate(
+                                        onPlay: (controller) =>
+                                            controller.repeat(reverse: true))
+                                    .fade(
+                                        begin: 0.4, end: 1.0, duration: 600.ms),
+                              ],
+                            ),
+                          )
+                        else
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: text,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: isUser
+                                            ? Colors.white
+                                            : (Theme.of(context).brightness ==
+                                                    Brightness.dark
+                                                ? Colors.white.withOpacity(0.95)
+                                                : AppColors.lightTextPrimary),
+                                        height: 1.5,
+                                        fontSize: 14,
+                                      ),
                                 ),
-                            ],
+                                if (isStreaming && !isUser)
+                                  WidgetSpan(
+                                    alignment: PlaceholderAlignment.middle,
+                                    child: Container(
+                                      margin: const EdgeInsets.only(left: 4),
+                                      width: 6,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFF2D55),
+                                        borderRadius: BorderRadius.circular(1),
+                                      ),
+                                    )
+                                        .animate(
+                                            onPlay: (c) =>
+                                                c.repeat(reverse: true))
+                                        .fade(
+                                            begin: 0.2,
+                                            end: 1.0,
+                                            duration: 400.ms),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -791,28 +904,28 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
               ),
             ),
           ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
-
           if (isUser) ...[
             const SizedBox(width: 8),
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF334155)
-                    : const Color(0xFFE2E8F0),
-                shape: BoxShape.circle,
-                border: Border.all(
                   color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.white.withOpacity(0.1)
-                      : Colors.black.withOpacity(0.05),
-                )
-              ),
-              child: Icon(Icons.person_rounded, 
-                  color: Theme.of(context).brightness == Brightness.dark 
-                      ? Colors.white70 : Colors.black54, 
+                      ? const Color(0xFF334155)
+                      : const Color(0xFFE2E8F0),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.05),
+                  )),
+              child: Icon(Icons.person_rounded,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white70
+                      : Colors.black54,
                   size: 14),
-          ).animate().scale(delay: 100.ms, duration: 250.ms, curve: Curves.easeOutBack),
+            ).animate().scale(
+                delay: 100.ms, duration: 250.ms, curve: Curves.easeOutBack),
           ]
         ],
       ),
@@ -856,7 +969,7 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                 // Active Quick Replies during chat
                 if (_emergencyService.conversationHistory.isNotEmpty)
                   _buildActiveQuickReplies(),
-                  
+
                 // Input Container
                 Container(
                   padding:
@@ -893,13 +1006,14 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                           'Add Image',
                           _handleImageInput,
                         ),
-                      if (!_isVoiceMode)
-                        const SizedBox(width: 8),
+                      if (!_isVoiceMode) const SizedBox(width: 8),
 
                       // Voice Button
                       _buildInputIconButton(
                         _isRecording ? Icons.stop_rounded : Icons.mic_outlined,
-                        _isRecording ? AppColors.emergencyRed : const Color(0xFFFF9500),
+                        _isRecording
+                            ? AppColors.emergencyRed
+                            : const Color(0xFFFF9500),
                         _isRecording ? 'Stop Voice' : 'Voice Input',
                         _handleVoiceInput,
                       ),
@@ -920,26 +1034,43 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                                     fit: BoxFit.scaleDown,
                                     child: _isProcessingVoice
                                         ? Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
                                               const SizedBox(
                                                 width: 14,
                                                 height: 14,
-                                                child: CircularProgressIndicator(
+                                                child:
+                                                    CircularProgressIndicator(
                                                   strokeWidth: 2,
-                                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFF9500)),
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                              Color>(
+                                                          Color(0xFFFF9500)),
                                                 ),
                                               ),
                                               const SizedBox(width: 8),
                                               Text(
                                                 'Analyzing...',
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: const Color(0xFFFF9500),
-                                                      fontWeight: FontWeight.bold,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      color: const Color(
+                                                          0xFFFF9500),
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                       fontSize: 12,
                                                     ),
-                                              ).animate(onPlay: (controller) => controller.repeat(reverse: true))
-                                               .fade(begin: 0.4, end: 1.0, duration: 600.ms),
+                                              )
+                                                  .animate(
+                                                      onPlay: (controller) =>
+                                                          controller.repeat(
+                                                              reverse: true))
+                                                  .fade(
+                                                      begin: 0.4,
+                                                      end: 1.0,
+                                                      duration: 600.ms),
                                             ],
                                           )
                                         : AudioVisualizer(
@@ -952,7 +1083,10 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                                   const SizedBox(height: 4),
                                   Text(
                                     _voiceStatus,
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(
                                           color: const Color(0xFFFF9500),
                                           fontWeight: FontWeight.bold,
                                           fontSize: 10,
@@ -986,7 +1120,10 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                                 vertical: 12,
                               ),
                             ),
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: Theme.of(context).brightness ==
                                           Brightness.dark
                                       ? Colors.white
@@ -1002,8 +1139,7 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
                       const SizedBox(width: 8),
 
                       // Send Button
-                      if (!_isVoiceMode)
-                        _buildSendButton(),
+                      if (!_isVoiceMode) _buildSendButton(),
                     ],
                   ),
                 ),
@@ -1118,16 +1254,16 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF38BDF8).withOpacity(0.1),
-        border: Border.all(color: const Color(0xFF38BDF8).withOpacity(0.3), width: 1.2),
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF38BDF8).withOpacity(0.05),
-            blurRadius: 6,
-          ),
-        ]
-      ),
+          color: const Color(0xFF38BDF8).withOpacity(0.1),
+          border: Border.all(
+              color: const Color(0xFF38BDF8).withOpacity(0.3), width: 1.2),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF38BDF8).withOpacity(0.05),
+              blurRadius: 6,
+            ),
+          ]),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1155,7 +1291,7 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
       'It\'s getting worse',
       'Patient is bleeding',
     ];
-    
+
     return Container(
       height: 40,
       margin: const EdgeInsets.only(bottom: 12),
@@ -1171,8 +1307,8 @@ class _EmergencyChatViewState extends State<EmergencyChatView> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.white 
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
                     : AppColors.lightTextPrimary,
               ),
             ),
