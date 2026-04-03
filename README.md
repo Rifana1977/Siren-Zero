@@ -65,7 +65,40 @@ Siren-Zero is the brain of a survival expert, compressed into your pocket.
 
 ---
 
-## 📸 Demo 
+## 📸 Demo
+
+### 🏠 Home Screen
+
+![Home](./assets/demo/home.png)
+
+### 💬 AI Chat Interface
+
+![Chat](./assets/demo/chat.png)
+
+### 🚨 Emergency Actions
+
+![Emergency](./assets/demo/emergency.png)
+
+### 📡 Mesh Device Discovery
+
+![Mesh](./assets/demo/mesh.png)
+
+### 🤖 AI Assistant
+
+![Assistant](./assets/demo/assistant.png)
+
+### 🗺️ Mission Map
+
+![Map](./assets/demo/map.png)
+
+### 📚 Protocol Library
+
+![Protocols](./assets/demo/protocols.png)
+
+### ❤️ CPR Guide
+
+![CPR](./assets/demo/cpr.png)
+
 ---
 
 ## 🏗️ Architecture
