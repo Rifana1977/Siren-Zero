@@ -1,6 +1,11 @@
 # Siren-Zero 🚨
 
-**Your Offline Emergency Co-Pilot**
+> 🏆 Built during a hackathon – designed for real-world emergency scenarios with zero internet dependency  
+💡 “When networks fail, Siren-Zero doesn’t.”
+
+---
+
+## 🧭 Your Offline Emergency Co-Pilot
 
 Zero-latency, offline-first emergency response guidance powered by on-device AI. When towers fall and networks fail, Siren-Zero keeps working—providing instant, expert-level medical and survival guidance when every second counts.
 
@@ -10,20 +15,89 @@ Zero-latency, offline-first emergency response guidance powered by on-device AI.
 
 ---
 
+## 👨‍💻 My Contribution
+
+- 📡 Developed mesh-based device communication system  
+- 💬 Designed WhatsApp-style real-time chat interface  
+- 🤖 Built offline AI chatbot for emergency guidance  
+- 🔍 Implemented nearby device discovery & connection flow  
+
+---
+
+## ⚙️ Tech Stack
+
+- Flutter (Frontend)
+- RunAnywhere SDK (On-device execution)
+- LlamaCpp / ONNX Runtime
+- SmolLM2 (On-device LLM)
+- Whisper (STT) + Piper (TTS)
+- Mesh Communication Concepts
+
+---
+
 ## 🎯 The Problem
 
-In a crisis—whether a natural disaster, remote hiking accident, or city-wide blackout—the devices we rely on fail us. When cell towers go down, Google and AI assistants become "dead weight." People resort to panicked recollections or old paper guides in high-pressure, life-or-death situations where **every second counts**.
+In a crisis—whether a natural disaster, remote hiking accident, or city-wide blackout—the devices we rely on fail us. When cell towers go down, Google and AI assistants become "dead weight." People resort to panic in life-or-death situations where **every second counts**.
+
+---
 
 ## ✨ The Solution
 
-**Siren-Zero** is a zero-latency, offline-first emergency response co-pilot that lives on your phone. It requires **zero bars of signal** to function. By leveraging on-device AI (Phi-3-Mini/SmolLM2) optimized for mobile hardware, Siren-Zero provides:
+**Siren-Zero** is a zero-latency, offline-first emergency response co-pilot that lives on your phone.
 
-- **Instant guidance** - 7ms time-to-first-token response speed
-- **Expert knowledge** - Medical protocols from WHO, Red Cross, and wilderness survival experts
-- **Voice interaction** - Hands-free operation when you can't look at a screen
-- **100% offline** - Works in war zones, wilderness, natural disasters, anywhere
+- ⚡ Instant AI guidance (7ms TTFT)
+- 📚 Verified medical + survival protocols
+- 🎤 Voice-first hands-free operation
+- 📡 Works with **zero network**
 
-Siren-Zero is the brain of a survivalist, miniaturized for your pocket.
+Siren-Zero is the brain of a survival expert, compressed into your pocket.
+
+---
+
+## 🚀 Key Features
+
+- 🩺 9 Emergency categories (Cardiac, Trauma, Choking, etc.)
+- 🤖 Offline AI chatbot
+- 🎤 Voice assistant (STT → LLM → TTS)
+- 📡 Mesh-based communication *(in development)*
+- 📱 Real-time chat UI
+- 📚 Protocol-based emergency guidance
+
+---
+
+## 📸 Demo
+
+### 🏠 Home Screen
+
+![Home](./assets/demo/home.png)
+
+### 💬 AI Chat Interface
+
+![Chat](./assets/demo/chat.png)
+
+### 🚨 Emergency Actions
+
+![Emergency](./assets/demo/emergency.png)
+
+### 📡 Mesh Device Discovery
+
+![Mesh](./assets/demo/mesh.png)
+
+### 🤖 AI Assistant
+
+![Assistant](./assets/demo/assistant.png)
+
+### 🗺️ Mission Map
+
+![Map](./assets/demo/map.png)
+
+### 📚 Protocol Library
+
+![Protocols](./assets/demo/protocols.png)
+
+### ❤️ CPR Guide
+
+![CPR](./assets/demo/cpr.png)
 
 ---
 
